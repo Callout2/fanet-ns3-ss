@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <numeric>
 #include <set>
+#include <cstdint>
+#include <numeric>
 
 template <class T_data>
 class Graph

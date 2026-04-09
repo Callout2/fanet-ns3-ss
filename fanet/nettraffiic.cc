@@ -362,3 +362,193 @@ int UdpClientServerTraffic::ConfigreTracing()
   return 0;
 }
 
+// ==================== PingPongTraffic 实现 ====================
+
+NS_OBJECT_ENSURE_REGISTERED (PingPongTraffic);
+
+TypeId PingPongTraffic::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("PING_PONG")
+    .SetParent<NetTraffic> ()
+    .AddConstructor<PingPongTraffic> ();
+  return tid;
+}
+
+PingPongTraffic::PingPongTraffic() : m_port(9999), m_total_replies(0), m_expected_replies(0)
+{
+}
+
+PingPongTraffic::~PingPongTraffic()
+{
+}
+
+NetTraffic* PingPongTraffic::Clone() const
+{
+  return new PingPongTraffic();
+}
+
+uint32_t PingPongTraffic::Install(ns3::NodeContainer& nc, ns3::NetDeviceContainer& devs, ns3::Ipv4InterfaceContainer& ip_c, uint32_t stream_index, double start_time)
+{
+  m_sindex = stream_index;
+  m_expected_replies = nc.GetN() - 1;
+  m_total_replies = 0;
+
+  // 记录 IP 到 节点 ID 的映射，方便打印 "nodeX"
+  for (uint32_t i = 0; i < nc.GetN(); ++i) {
+      m_ip_to_node_id[ip_c.GetAddress(i, 0)] = i;
+  }
+
+  TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+
+  // 初始化 Node 0 (发令者)
+  Ptr<Node> node0 = nc.Get(0);
+  Ipv4Address node0_ip = ip_c.GetAddress(0, 0);
+  m_node0_socket = Socket::CreateSocket(node0, tid);
+  m_node0_socket->Bind(InetSocketAddress(node0_ip, m_port));
+  m_node0_socket->SetRecvCallback(MakeCallback(&PingPongTraffic::Node0RxCb, this));
+
+  // 初始化其他节点 (接收并回复者)
+  for (uint32_t i = 1; i < nc.GetN(); ++i) {
+      Ptr<Node> node_i = nc.Get(i);
+      Ipv4Address node_i_ip = ip_c.GetAddress(i, 0);
+      Ptr<Socket> socket_i = Socket::CreateSocket(node_i, tid);
+      socket_i->Bind(InetSocketAddress(node_i_ip, m_port));
+      socket_i->SetRecvCallback(MakeCallback(&PingPongTraffic::NodeIRxCb, this));
+      m_other_sockets[i] = socket_i;
+
+      // 【核心防碰撞设计】：让 node0 依次向其他节点发包（每隔 0.5 秒发一个）
+      // 如果同时向 100 个节点发包，会导致 AODV 路由发现风暴，网络直接瘫痪
+      Simulator::Schedule(Seconds(start_time + i * 0.5), &PingPongTraffic::SendFromNode0, this, node_i_ip, i);
+  }
+
+  // 挂载到底层 IP 协议，拦截并记录 TTL 来计算跳数
+  Config::Connect("/NodeList/*/$ns3::Ipv4L3Protocol/LocalDeliver", MakeCallback(&PingPongTraffic::IpLocalDeliverCb, this)); // 注意：把原本这里的WithoutContext删掉
+  Config::Connect("/NodeList/*/$ns3::Ipv4L3Protocol/UnicastForward", MakeCallback(&PingPongTraffic::IpUnicastForwardCb, this));
+  Config::Connect("/NodeList/*/$ns3::Ipv4L3Protocol/Drop", MakeCallback(&PingPongTraffic::IpDropCb, this));
+
+  return m_sindex;
+}
+
+int PingPongTraffic::ConfigreTracing()
+{
+  return 0; // 这个特殊流量我们直接 cout 打印，不需要额外的 tracer 输出 csv
+}
+
+void PingPongTraffic::SendFromNode0(Ipv4Address dst, uint32_t node_index)
+{
+    std::cout << "node0向node" << node_index << "发送消息" << std::endl;
+    Ptr<Packet> p = Create<Packet>(64);
+    m_node0_socket->SendTo(p, 0, InetSocketAddress(dst, m_port));
+}
+
+void PingPongTraffic::NodeIRxCb(Ptr<Socket> socket)
+{
+    Ptr<Packet> packet;
+    Address from;
+    while ((packet = socket->RecvFrom(from))) {
+        InetSocketAddress src_addr = InetSocketAddress::ConvertFrom(from);
+        
+        // 查找该包的跳数
+        uint32_t hops = 0;
+        if (m_uid_to_hops.find(packet->GetUid()) != m_uid_to_hops.end()) {
+            hops = m_uid_to_hops[packet->GetUid()];
+        }
+
+        // 获取当前是哪个 node 收到了包
+        Address local_addr;
+        socket->GetSockName(local_addr);
+        Ipv4Address my_ip = InetSocketAddress::ConvertFrom(local_addr).GetIpv4();
+        uint32_t my_id = m_ip_to_node_id[my_ip];
+
+        std::cout << "node" << my_id << "接收到了node0发送的消息，经过跳数为" << hops << std::endl;
+        std::cout << "node" << my_id << "向node0发送消息" << std::endl;
+
+        // 回复 node0
+        Ptr<Packet> reply = Create<Packet>(64);
+        socket->SendTo(reply, 0, src_addr);
+    }
+}
+
+void PingPongTraffic::Node0RxCb(Ptr<Socket> socket)
+{
+    Ptr<Packet> packet;
+    Address from;
+    while ((packet = socket->RecvFrom(from))) {
+        InetSocketAddress src_addr = InetSocketAddress::ConvertFrom(from);
+        
+        // 查找该包的跳数
+        uint32_t hops = 0;
+        if (m_uid_to_hops.find(packet->GetUid()) != m_uid_to_hops.end()) {
+            hops = m_uid_to_hops[packet->GetUid()];
+        }
+        
+        m_total_replies++;
+        uint32_t sender_id = m_ip_to_node_id[src_addr.GetIpv4()];
+
+        std::cout << "node0接收到了node" << sender_id << "发送的消息，经过跳数为" << hops
+                  << "，进度" << m_total_replies << "/" << m_expected_replies << std::endl;
+    }
+}
+
+void PingPongTraffic::IpLocalDeliverCb(const Ipv4Header &ip_hdr, Ptr<const Packet> p, uint32_t ifs)
+{
+    // 拦截底层包，NS-3 默认初始 TTL 为 64。跳数 = 64 - 抵达时的 TTL
+    m_uid_to_hops[p->GetUid()] = 64 - ip_hdr.GetTtl();
+}
+
+// 辅助函数：从 NS-3 的上下文字符串(如 "/NodeList/15/...") 中提取当前处理该包的 Node ID
+static uint32_t GetNodeIdFromContext(std::string context) {
+    std::size_t n1 = context.find("/NodeList/");
+    if (n1 != std::string::npos) {
+        n1 += 10;
+        std::size_t n2 = context.find("/", n1);
+        if (n2 != std::string::npos) {
+            return std::stoi(context.substr(n1, n2 - n1));
+        }
+    }
+    return 9999;
+}
+
+// 拦截【中间节点转发】动作
+void PingPongTraffic::IpUnicastForwardCb(std::string context, const Ipv4Header &ip_hdr, Ptr<const Packet> p, uint32_t ifs)
+{
+    uint32_t current_node = GetNodeIdFromContext(context);
+    
+    // 只打印应用层发出的数据包（通过端口或 UID 过滤，避免打印海量的 AODV 协议心跳包）
+    // UDP_CBR/PingPong 的 UID 通常较小或者连续，这里我们全部打印，你可以根据需要调整
+    std::cout << "  [接力转发] node" << current_node 
+              << " 正在转发包(UID:" << p->GetUid() << ")"
+              << " | 源IP:" << ip_hdr.GetSource() 
+              << " -> 目的IP:" << ip_hdr.GetDestination() 
+              << " | 剩余寿命TTL:" << (uint32_t)ip_hdr.GetTtl() << std::endl;
+}
+
+// 拦截【网络层丢包】动作
+void PingPongTraffic::IpDropCb(std::string context, const Ipv4Header &ip_hdr, Ptr<const Packet> p, Ipv4L3Protocol::DropReason reason, Ptr<Ipv4> ipv4, uint32_t ifs)
+{
+    uint32_t current_node = GetNodeIdFromContext(context);
+    
+    // 丢弃原因解析 (NS-3 Ipv4L3Protocol::DropReason)
+    std::string reason_str;
+    switch(reason) {
+        case Ipv4L3Protocol::DROP_TTL_EXPIRED: reason_str = "TTL耗尽(可能陷入死循环)"; break;
+        case Ipv4L3Protocol::DROP_NO_ROUTE: reason_str = "找不到路由(遇到空洞或断连)"; break;
+        case Ipv4L3Protocol::DROP_BAD_CHECKSUM: reason_str = "校验和错误"; break;
+        case Ipv4L3Protocol::DROP_INTERFACE_DOWN: reason_str = "网卡关闭"; break;
+        case Ipv4L3Protocol::DROP_ROUTE_ERROR: reason_str = "路由错误"; break;
+        default: reason_str = "其他原因(码:" + std::to_string(reason) + ")"; break;
+    }
+
+    std::cout << "  [❌断点丢包!] node" << current_node 
+              << " 丢弃了包(UID:" << p->GetUid() << ")"
+              << " | 源IP:" << ip_hdr.GetSource() 
+              << " -> 目的IP:" << ip_hdr.GetDestination() 
+              << " | 原因: " << reason_str << std::endl;
+}
+
+// 记得把上一版写的 IpLocalDeliverCb 第一个参数加上 std::string context
+void PingPongTraffic::IpLocalDeliverCb(std::string context, const Ipv4Header &ip_hdr, Ptr<const Packet> p, uint32_t ifs)
+{
+    m_uid_to_hops[p->GetUid()] = 64 - ip_hdr.GetTtl();
+}
+

@@ -145,4 +145,34 @@ public:
   virtual uint32_t Install(ns3::NodeContainer& nc, ns3::NetDeviceContainer& devs, ns3::Ipv4InterfaceContainer& ip_c, uint32_t stream_index, double start_time) override;
   virtual int ConfigreTracing() override;
 };
+
+class PingPongTraffic : public NetTraffic
+{
+private:
+  uint16_t m_port;
+  uint32_t m_total_replies;
+  uint32_t m_expected_replies;
+  ns3::Ptr<ns3::Socket> m_node0_socket;
+  std::map<uint32_t, ns3::Ptr<ns3::Socket> > m_other_sockets;
+  std::map<uint64_t, uint32_t> m_uid_to_hops;
+  std::map<ns3::Ipv4Address, uint32_t> m_ip_to_node_id;
+
+  void SendFromNode0(ns3::Ipv4Address dst, uint32_t node_index);
+  void Node0RxCb(ns3::Ptr<ns3::Socket> socket);
+  void NodeIRxCb(ns3::Ptr<ns3::Socket> socket);
+  void IpLocalDeliverCb(const ns3::Ipv4Header &ip_hdr, ns3::Ptr<const ns3::Packet> p, uint32_t ifs);
+
+  virtual NetTraffic* Clone() const override;
+
+public:
+  static ns3::TypeId GetTypeId (void);
+
+  PingPongTraffic();
+  virtual ~PingPongTraffic();
+  virtual uint32_t Install(ns3::NodeContainer& nc, ns3::NetDeviceContainer& devs, ns3::Ipv4InterfaceContainer& ip_c, uint32_t stream_index, double start_time) override;
+  virtual int ConfigreTracing() override;
+};
+
+void IpUnicastForwardCb(std::string context, const ns3::Ipv4Header &ip_hdr, ns3::Ptr<const ns3::Packet> p, uint32_t ifs);
+  void IpDropCb(std::string context, const ns3::Ipv4Header &ip_hdr, ns3::Ptr<const ns3::Packet> p, ns3::Ipv4L3Protocol::DropReason reason, ns3::Ptr<ns3::Ipv4> ipv4, uint32_t ifs);
 #endif // NETTRAFFIIC_H

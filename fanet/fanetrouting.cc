@@ -52,7 +52,7 @@ TypeId FanetRoutingExperiment::GetTypeId (void)
     .AddAttribute ("nodes", "Number of nodes in simulation",
                    UintegerValue (2),
                    MakeUintegerAccessor (&FanetRoutingExperiment::m_nNodes),
-                   MakeUintegerChecker<uint32_t> (1, 100))
+                   MakeUintegerChecker<uint32_t> (1, 512))
     .AddAttribute ("time", "Total simulation time",
                    DoubleValue (),
                    MakeDoubleAccessor (&FanetRoutingExperiment::m_total_sim_time),
@@ -216,7 +216,7 @@ void FanetRoutingExperiment::ConfigureMobility ()
   FanetMobility& mob = FanetMobilityCreator::Inst().GetMobilityModel();
 
   mob.SetSimulationTime(ns3::Seconds(m_total_sim_time));
-  mob.SetMobilityAreaAndSpeed(ns3::Vector3D(20000.0, 20000.0, 2000.0), m_nodeSpeed);
+  mob.SetMobilityAreaAndSpeed(ns3::Vector3D(2000.0, 2000.0, 0.0), m_nodeSpeed);
   m_streamIndex += mob.Install(m_adhocTxNodes, m_streamIndex);
 }
 

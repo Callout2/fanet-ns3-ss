@@ -995,7 +995,8 @@ public:
          "pid" + m_delimeter +
          "s" + m_delimeter +
          "src" + m_delimeter +
-         "dst";
+         "dst" + m_delimeter + 
+         "hops";
     m_cb_name_to_hdr_map.insert(std::make_pair("LocalDeliver", ss));
   }
   ~Ipv4L3ProtocolTracer() = default;
@@ -1097,11 +1098,14 @@ public:
     std::stringstream sdst;
     ip_hdr.GetDestination().Print(sdst);
 
+    uint32_t hops = 64 - ip_hdr.GetTtl();
+
     ofs << ns3::Simulator::Now ().GetSeconds () << m_delimeter
         << p->GetUid() << m_delimeter
         << p->GetSize() << m_delimeter
         << m_q << ssource.str() << m_q << m_delimeter
         << m_q << sdst.str() << m_q
+        << hops
         << std::endl;
   }
 
