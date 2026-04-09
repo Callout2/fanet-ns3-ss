@@ -88,7 +88,7 @@ RoutingHelper::SetupRoutingProtocol (NodeContainer & c)
     internet.Install (c);
     routing.Install(c);
 
-    attr_val_list.push_back(std::make_pair("HelloInterval", new TimeValue(Seconds (1.0))));
+    attr_val_list.push_back(std::make_pair("HelloInterval", new TimeValue(Seconds (0.25))));
   }
   else if(m_protocol == "PAGPSR")
   {
@@ -106,7 +106,7 @@ RoutingHelper::SetupRoutingProtocol (NodeContainer & c)
     internet.Install (c);
     routing.Install(c);
 
-    attr_val_list.push_back(std::make_pair("HelloInterval", new TimeValue(Seconds (1.0))));
+    attr_val_list.push_back(std::make_pair("HelloInterval", new TimeValue(Seconds (0.25))));
   }
   else
   {

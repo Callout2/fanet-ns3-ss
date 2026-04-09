@@ -160,7 +160,11 @@ private:
   void SendFromNode0(ns3::Ipv4Address dst, uint32_t node_index);
   void Node0RxCb(ns3::Ptr<ns3::Socket> socket);
   void NodeIRxCb(ns3::Ptr<ns3::Socket> socket);
-  void IpLocalDeliverCb(const ns3::Ipv4Header &ip_hdr, ns3::Ptr<const ns3::Packet> p, uint32_t ifs);
+  
+  // 这三个是带上下文(context)的底层追踪回调（覆盖旧声明）
+  void IpLocalDeliverCb(std::string context, const ns3::Ipv4Header &ip_hdr, ns3::Ptr<const ns3::Packet> p, uint32_t ifs);
+  void IpUnicastForwardCb(std::string context, const ns3::Ipv4Header &ip_hdr, ns3::Ptr<const ns3::Packet> p, uint32_t ifs);
+  void IpDropCb(std::string context, const ns3::Ipv4Header &ip_hdr, ns3::Ptr<const ns3::Packet> p, ns3::Ipv4L3Protocol::DropReason reason, ns3::Ptr<ns3::Ipv4> ipv4, uint32_t ifs);
 
   virtual NetTraffic* Clone() const override;
 

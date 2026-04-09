@@ -490,9 +490,8 @@ void PingPongTraffic::Node0RxCb(Ptr<Socket> socket)
     }
 }
 
-void PingPongTraffic::IpLocalDeliverCb(const Ipv4Header &ip_hdr, Ptr<const Packet> p, uint32_t ifs)
+void PingPongTraffic::IpLocalDeliverCb(std::string context, const Ipv4Header &ip_hdr, Ptr<const Packet> p, uint32_t ifs)
 {
-    // 拦截底层包，NS-3 默认初始 TTL 为 64。跳数 = 64 - 抵达时的 TTL
     m_uid_to_hops[p->GetUid()] = 64 - ip_hdr.GetTtl();
 }
 
@@ -544,11 +543,5 @@ void PingPongTraffic::IpDropCb(std::string context, const Ipv4Header &ip_hdr, Pt
               << " | 源IP:" << ip_hdr.GetSource() 
               << " -> 目的IP:" << ip_hdr.GetDestination() 
               << " | 原因: " << reason_str << std::endl;
-}
-
-// 记得把上一版写的 IpLocalDeliverCb 第一个参数加上 std::string context
-void PingPongTraffic::IpLocalDeliverCb(std::string context, const Ipv4Header &ip_hdr, Ptr<const Packet> p, uint32_t ifs)
-{
-    m_uid_to_hops[p->GetUid()] = 64 - ip_hdr.GetTtl();
 }
 
