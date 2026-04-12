@@ -30,12 +30,21 @@ unix:!macx: LIBS += -L$$(NS3DIR)/build/lib/ \
                     -l$$(NS3VER)-core-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-network-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-internet-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-mpi-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-point-to-point-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-applications-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-stats-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-csma-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-bridge-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-internet-apps-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-antenna-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-spectrum-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-energy-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-buildings-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-virtual-net-device-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-fd-net-device-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-lte-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-lr-wpan-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-wifi-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-mobility-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-netanim-$$NS3_LIB_POSTFIX \
@@ -44,6 +53,7 @@ unix:!macx: LIBS += -L$$(NS3DIR)/build/lib/ \
                     -l$$(NS3VER)-olsr-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-propagation-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-traffic-control-$$NS3_LIB_POSTFIX \
+                    -l$$(NS3VER)-location-service-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-gpsr-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-pagpsr-$$NS3_LIB_POSTFIX \
                     -l$$(NS3VER)-mmgpsr-$$NS3_LIB_POSTFIX \
